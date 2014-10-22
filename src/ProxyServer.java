@@ -1,18 +1,24 @@
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.net.*;
+import java.io.*;
 
 public class ProxyServer {
-
     public static void main(String[] args) throws IOException {
-        int portNumber = Integer.parseInt(args[0]);
+        ServerSocket serverSocket = null;
 
-        ServerSocket serverSocket = new ServerSocket(portNumber);
-        Socket clientSocket = serverSocket.accept();
-        PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
-        BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+        int port = Integer.parseInt(args[0]);
+
+        try {
+            serverSocket = new ServerSocket(port);
+            System.out.println("Started on: " + port);
+        } catch (IOException e) {
+            System.err.println("Could not listen on port: " + args[0]);
+            System.exit(-1);
+        }
+
+        boolean listening = true;
+        while (listening) {
+            new ProxyWorker(serverSocket.accept()).start();
+        }
+        serverSocket.close();
     }
 }
