@@ -11,8 +11,6 @@ public class ProxyWorker extends Thread {
     }
 
     public String getRequestInfo() throws IOException {
-        DataOutputStream out =
-                new DataOutputStream(socket.getOutputStream());
         BufferedReader in = new BufferedReader(
                 new InputStreamReader(socket.getInputStream()));
 
@@ -67,8 +65,10 @@ public class ProxyWorker extends Thread {
         return response;
     }
 
-    public void sendResponseToClient() {
+    public DataOutputStream sendResponseToClient(InputStream is) throws IOException {
 
+        DataOutputStream out =
+                new DataOutputStream(socket.getOutputStream());
         byte by[] = new byte[ BUFFER_SIZE ];
         int index = is.read( by, 0, BUFFER_SIZE );
         while ( index != -1 )
@@ -77,6 +77,7 @@ public class ProxyWorker extends Thread {
             index = is.read( by, 0, BUFFER_SIZE );
         }
         out.flush();
+        return out;
     }
 
     public void cleanUp() {
@@ -89,11 +90,11 @@ public class ProxyWorker extends Thread {
         try {
 
             String destinationURL = getRequestInfo();
-
-
+            BufferedReader response = getServerResponse(destinationURL);
+            DataOutputStream out = sendResponseToClient(is);
             //close out all resources
-            if (rd != null) {
-                rd.close();
+            if (response != null) {
+                response.close();
             }
             if (out != null) {
                 out.close();
