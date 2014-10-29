@@ -9,10 +9,10 @@ public class ProxyServer {
 
         try {
             serverSocket = new ServerSocket(port);
-            System.out.println("Started on: " + port);
+            System.out.println("Server started on: " + port);
         } catch (IOException e) {
-            System.err.println("Could not listen on port: " + args[0]);
-            System.exit(-1);
+            System.err.println("Could not listen on port: " + port);
+            System.exit(1);
         }
 
         boolean listening = true;

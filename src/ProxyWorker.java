@@ -2,110 +2,73 @@ import java.net.*;
 import java.io.*;
 import java.util.*;
 
+
 public class ProxyWorker extends Thread {
     private Socket socket = null;
-    private static final int BUFFER_SIZE = 32768;
+    public static final int BUFFER_SIZE = 32768;
     public ProxyWorker(Socket socket) {
-        super("ProxyThread");
         this.socket = socket;
     }
 
-    public String getRequestInfo() throws IOException {
-        BufferedReader in = new BufferedReader(
+    public Request getClientRequest() throws IOException {
+        BufferedReader clientInputReader = new BufferedReader(
                 new InputStreamReader(socket.getInputStream()));
 
-        String inputLine, outputLine;
-        int cnt = 0;
+        String inputLine;
+        int count = 0;
         String destinationURL = "";
-
-        while ((inputLine = in.readLine()) != null) {
-            System.out.println(inputLine);
+        while ((inputLine = clientInputReader.readLine()) != null) {
             try {
                 StringTokenizer tok = new StringTokenizer(inputLine);
                 tok.nextToken();
             } catch (Exception e) {
                 break;
             }
-            //parse the first line of the request to find the url
-            if (cnt == 0) {
+            if (count == 0) {
                 String[] tokens = inputLine.split(" ");
                 destinationURL = tokens[1];
                 //can redirect this to output log
                 System.out.println("Request for : " + destinationURL);
             }
 
-            cnt++;
+            count++;
         }
-        return destinationURL;
+
+        return new Request(destinationURL, clientInputReader);
     }
 
-    public BufferedReader getServerResponse(String urlString) throws MalformedURLException, IOException {
-        System.out.println("sending request to server for url: " + urlString);
-        URL url = new URL(urlString);
-        URLConnection conn = url.openConnection();
+    public Response getServerResponse(Request clientRequest) throws IOException {
+        BufferedReader responseReader = null;
+
+        URL requestedURL = new URL(clientRequest.getUrl());
+        URLConnection conn = requestedURL.openConnection();
         conn.setDoInput(true);
-        //not doing HTTP posts (yet)
         conn.setDoOutput(false);
-        System.out.println("Content-Type: " + conn.getContentType());
-        System.out.println("Content-Length: " + conn.getContentLength());
-        System.out.println("Content-Encoding: " + conn.getContentEncoding());
-
-        BufferedReader response = null;
-        // Get the response
         InputStream is = null;
-        HttpURLConnection huc = (HttpURLConnection)conn;
+        HttpURLConnection httpConnection = (HttpURLConnection)conn;
         if (conn.getContentLength() > 0) {
-            try {
-                is = conn.getInputStream();
-                response = new BufferedReader(new InputStreamReader(is));
-            } catch (IOException ioe) {
-                System.out.println(ioe.toString());
-            }
+            is = conn.getInputStream();
+            responseReader = new BufferedReader(new InputStreamReader(is));
         }
-        return response;
+        return new Response(is, responseReader, new DataOutputStream(socket.getOutputStream()));
     }
 
-    public DataOutputStream sendResponseToClient(InputStream is) throws IOException {
-
-        DataOutputStream out =
-                new DataOutputStream(socket.getOutputStream());
-        byte by[] = new byte[ BUFFER_SIZE ];
-        int index = is.read( by, 0, BUFFER_SIZE );
-        while ( index != -1 )
-        {
-            out.write( by, 0, index );
-            index = is.read( by, 0, BUFFER_SIZE );
-        }
-        out.flush();
-        return out;
-    }
-
-    public void cleanUp() {
-
+    public void closeResources(Request clientRequest, Response serverResponse) throws IOException {
+        BufferedReader contentReader = serverResponse.getContentReader();
+        if (contentReader != null) contentReader.close();
+        DataOutputStream outputStream = serverResponse.getOutputStream();
+        if (outputStream != null) outputStream.close();
+        BufferedReader clientHeaderReader = clientRequest.getHeaderReader();
+        if (clientHeaderReader != null) clientHeaderReader.close();
+        if (socket != null) socket.close();
     }
 
     public void run() {
-        //send response to user
-
         try {
-
-            String destinationURL = getRequestInfo();
-            BufferedReader response = getServerResponse(destinationURL);
-            DataOutputStream out = sendResponseToClient(is);
-            //close out all resources
-            if (response != null) {
-                response.close();
-            }
-            if (out != null) {
-                out.close();
-            }
-            if (in != null) {
-                in.close();
-            }
-            if (socket != null) {
-                socket.close();
-            }
-
+            Request clientRequest = getClientRequest();
+            Response serverResponse = getServerResponse(clientRequest);
+            serverResponse.writeToOutputStream();
+            closeResources(clientRequest, serverResponse);
         } catch (IOException e) {
             e.printStackTrace();
         }
