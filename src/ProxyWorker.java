@@ -1,7 +1,6 @@
-import java.net.*;
 import java.io.*;
-import java.util.*;
-
+import java.net.*;
+import java.util.StringTokenizer;
 
 public class ProxyWorker extends Thread {
     private Socket socket = null;
@@ -15,8 +14,9 @@ public class ProxyWorker extends Thread {
                 new InputStreamReader(socket.getInputStream()));
 
         String inputLine;
-        int count = 0;
-        String destinationURL = "";
+        int lineNumber = 0;
+        String requestedURL = "";
+        StringBuilder header = new StringBuilder();
         while ((inputLine = clientInputReader.readLine()) != null) {
             try {
                 StringTokenizer tok = new StringTokenizer(inputLine);
@@ -24,36 +24,36 @@ public class ProxyWorker extends Thread {
             } catch (Exception e) {
                 break;
             }
-            if (count == 0) {
+            if (lineNumber == 0) {
                 String[] tokens = inputLine.split(" ");
-                destinationURL = tokens[1];
-                //can redirect this to output log
-                System.out.println("Request for : " + destinationURL);
+                requestedURL = tokens[1];
             }
 
-            count++;
+            header.append(inputLine + "\r\n");
+            lineNumber++;
         }
 
-        return new Request(destinationURL, clientInputReader);
+        header.append("\r\n");
+
+        System.out.println(header.toString());
+
+        return new Request(requestedURL, header.toString(), clientInputReader);
     }
 
     public Response getServerResponse(Request clientRequest) throws IOException {
-        BufferedReader responseReader = null;
+        String httpMethod = clientRequest.getHTTPMethod();
+        if (httpMethod.equals("POST"))
+            throw new IOException("does not accept post requests");
 
-        URL requestedURL = new URL(clientRequest.getUrl());
-        URLConnection conn = requestedURL.openConnection();
-        conn.setDoInput(true);
-        conn.setDoOutput(false);
-        InputStream is = null;
-        HttpURLConnection httpConnection = (HttpURLConnection)conn;
-        if (conn.getContentLength() > 0) {
-            is = conn.getInputStream();
-            responseReader = new BufferedReader(new InputStreamReader(is));
-        }
+        PrintWriter out = new PrintWriter(socket.getOutputStream());
+        out.println(clientRequest.getHeader());
+        InputStream is = socket.getInputStream();
+        BufferedReader responseReader = new BufferedReader(new InputStreamReader(is));
         return new Response(is, responseReader, new DataOutputStream(socket.getOutputStream()));
     }
 
     public void closeResources(Request clientRequest, Response serverResponse) throws IOException {
+        System.out.println("closing resources");
         BufferedReader contentReader = serverResponse.getContentReader();
         if (contentReader != null) contentReader.close();
         DataOutputStream outputStream = serverResponse.getOutputStream();
