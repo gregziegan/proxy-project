@@ -4,6 +4,7 @@ import java.util.StringTokenizer;
 
 public class ProxyWorker extends Thread {
     private Socket socket = null;
+    private Socket httpSocket = null;
     public static final int BUFFER_SIZE = 32768;
     public ProxyWorker(Socket socket) {
         this.socket = socket;
@@ -29,46 +30,43 @@ public class ProxyWorker extends Thread {
                 requestedURL = tokens[1];
             }
 
-            header.append(inputLine + "\r\n");
+            header.append(inputLine);
+            header.append("\r\n");
             lineNumber++;
         }
 
         header.append("\r\n");
 
-        System.out.println(header.toString());
-
-        return new Request(requestedURL, header.toString(), clientInputReader);
+        return new Request(requestedURL, header.toString());
     }
 
     public Response getServerResponse(Request clientRequest) throws IOException {
         String httpMethod = clientRequest.getHTTPMethod();
-        if (httpMethod.equals("POST"))
-            throw new IOException("does not accept post requests");
+        //if (httpMethod.equals("POST"))
+        //    throw new IOException("does not accept post requests");
 
-        PrintWriter out = new PrintWriter(socket.getOutputStream());
-        out.println(clientRequest.getHeader());
-        InputStream is = socket.getInputStream();
-        BufferedReader responseReader = new BufferedReader(new InputStreamReader(is));
-        return new Response(is, responseReader, new DataOutputStream(socket.getOutputStream()));
+        System.out.println(httpMethod + " " + clientRequest.getUrl());
+        httpSocket = new Socket();
+        httpSocket.connect(new InetSocketAddress(clientRequest.getHost(), 80));
+        PrintWriter outWriter = new PrintWriter(httpSocket.getOutputStream(), true);
+        outWriter.println(clientRequest.getHeader());
+        InputStream inputStream = httpSocket.getInputStream();
+
+        return new Response(inputStream, outWriter);
     }
 
-    public void closeResources(Request clientRequest, Response serverResponse) throws IOException {
-        System.out.println("closing resources");
-        BufferedReader contentReader = serverResponse.getContentReader();
-        if (contentReader != null) contentReader.close();
-        DataOutputStream outputStream = serverResponse.getOutputStream();
-        if (outputStream != null) outputStream.close();
-        BufferedReader clientHeaderReader = clientRequest.getHeaderReader();
-        if (clientHeaderReader != null) clientHeaderReader.close();
-        if (socket != null) socket.close();
+    public void closeResources(Response serverResponse) throws IOException {
+        serverResponse.closeStreams();
+        if (httpSocket != null) httpSocket.close();
+        //if (socket != null) socket.close();
     }
 
     public void run() {
         try {
             Request clientRequest = getClientRequest();
             Response serverResponse = getServerResponse(clientRequest);
-            serverResponse.writeToOutputStream();
-            closeResources(clientRequest, serverResponse);
+            serverResponse.writeToOutputStream(socket.getOutputStream());
+            closeResources(serverResponse);
         } catch (IOException e) {
             e.printStackTrace();
         }

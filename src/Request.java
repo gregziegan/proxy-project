@@ -5,16 +5,20 @@ public class Request {
 
     private String url;
     private String header;
-    private BufferedReader headerReader;
 
-    public Request(String url, String header, BufferedReader headerReader) {
+    public Request(String url, String header) {
         this.url = url;
         this.header = header;
-        this.headerReader = headerReader;
     }
 
     public String getUrl() {
         return url;
+    }
+
+    public String getHost() {
+        String secondLine = header.split("\n")[1];
+        String[] tokens = secondLine.split(" ");
+        return tokens[1];
     }
 
     public String getHeader() {
@@ -25,10 +29,6 @@ public class Request {
         String firstLine = header.split("\n")[0];
         String[] tokens = firstLine.split(" ");
         return tokens[0];
-    }
-
-    public BufferedReader getHeaderReader() {
-        return headerReader;
     }
 
 }

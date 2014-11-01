@@ -1,29 +1,16 @@
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 
 public class Response {
     private static final int BUFFER_SIZE = ProxyWorker.BUFFER_SIZE;
     private InputStream contentStream;
-    private BufferedReader contentReader;
-    private DataOutputStream outputStream;
+    private PrintWriter outWriter;
 
-    public Response(InputStream contentStream, BufferedReader contentReader, DataOutputStream outputStream) {
+    public Response(InputStream contentStream, PrintWriter outWriter) {
         this.contentStream = contentStream;
-        this.contentReader = contentReader;
-        this.outputStream = outputStream;
+        this.outWriter = outWriter;
     }
 
-    public BufferedReader getContentReader() {
-        return contentReader;
-    }
-
-    public DataOutputStream getOutputStream() {
-        return outputStream;
-    }
-
-    public void writeToOutputStream() throws IOException {
+    public void writeToOutputStream(OutputStream outputStream) throws IOException {
         byte responseBytes[] = new byte[BUFFER_SIZE];
         int index = contentStream.read(responseBytes, 0, BUFFER_SIZE);
         while (index != -1) {
@@ -33,4 +20,8 @@ public class Response {
         outputStream.flush();
     }
 
+    public void closeStreams() throws IOException {
+        if (outWriter != null) outWriter.close();
+        if (contentStream != null) contentStream.close();
+    }
 }
