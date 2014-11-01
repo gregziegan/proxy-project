@@ -52,7 +52,8 @@ public class ProxyWorker extends Thread {
     public Response getServerResponse(Request clientRequest) throws IOException {
         String httpMethod = clientRequest.getHTTPMethod();
 
-        System.out.println(httpMethod + " " + clientRequest.getUrl());
+        //System.out.println(httpMethod + " " + clientRequest.getUrl());
+        System.out.println(clientRequest.getHeader());
         httpSocket = new Socket();
         httpSocket.connect(new InetSocketAddress(new URL(clientRequest.getUrl()).getHost(), 80));
         InputStream inputStream = httpSocket.getInputStream();

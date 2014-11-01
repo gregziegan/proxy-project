@@ -1,11 +1,11 @@
 import java.net.*;
 import java.io.*;
 
-public class ProxyServer {
+public class proxyd {
     public static void main(String[] args) throws IOException {
         ServerSocket serverSocket = null;
 
-        int port = Integer.parseInt(args[0]);
+        int port = Integer.parseInt(args[1]);
 
         try {
             serverSocket = new ServerSocket(port);
