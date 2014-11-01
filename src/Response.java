@@ -11,13 +11,14 @@ public class Response {
     }
 
     public void writeToOutputStream(OutputStream outputStream) throws IOException {
+        DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
         byte responseBytes[] = new byte[BUFFER_SIZE];
         int index = contentStream.read(responseBytes, 0, BUFFER_SIZE);
         while (index != -1) {
-            outputStream.write(responseBytes, 0, index);
+            dataOutputStream.write(responseBytes, 0, index);
             index = contentStream.read(responseBytes, 0, BUFFER_SIZE);
         }
-        outputStream.flush();
+        dataOutputStream.flush();
     }
 
     public void closeStreams() throws IOException {

@@ -17,7 +17,9 @@ public class ProxyWorker extends Thread {
         String inputLine;
         int lineNumber = 0;
         String requestedURL = "";
-        StringBuilder header = new StringBuilder();
+        StringBuilder headerBuilder = new StringBuilder();
+        boolean hasConnectionField = false;
+
         while ((inputLine = clientInputReader.readLine()) != null) {
             try {
                 StringTokenizer tok = new StringTokenizer(inputLine);
@@ -30,27 +32,33 @@ public class ProxyWorker extends Thread {
                 requestedURL = tokens[1];
             }
 
-            header.append(inputLine);
-            header.append("\r\n");
+            if (inputLine.contains("Connection")) {
+                inputLine = "Connection: close";
+                hasConnectionField = true;
+            }
+            headerBuilder.append(inputLine);
+            headerBuilder.append("\r\n");
             lineNumber++;
         }
 
-        header.append("\r\n");
+        if (!hasConnectionField)
+            headerBuilder.append("Connection: close\r\n");
 
-        return new Request(requestedURL, header.toString());
+        String header = headerBuilder.toString();
+
+        return new Request(requestedURL, header);
     }
 
     public Response getServerResponse(Request clientRequest) throws IOException {
         String httpMethod = clientRequest.getHTTPMethod();
-        //if (httpMethod.equals("POST"))
-        //    throw new IOException("does not accept post requests");
 
         System.out.println(httpMethod + " " + clientRequest.getUrl());
         httpSocket = new Socket();
-        httpSocket.connect(new InetSocketAddress(clientRequest.getHost(), 80));
+        httpSocket.connect(new InetSocketAddress(new URL(clientRequest.getUrl()).getHost(), 80));
+        InputStream inputStream = httpSocket.getInputStream();
         PrintWriter outWriter = new PrintWriter(httpSocket.getOutputStream(), true);
         outWriter.println(clientRequest.getHeader());
-        InputStream inputStream = httpSocket.getInputStream();
+        outWriter.flush();
 
         return new Response(inputStream, outWriter);
     }
@@ -58,7 +66,7 @@ public class ProxyWorker extends Thread {
     public void closeResources(Response serverResponse) throws IOException {
         serverResponse.closeStreams();
         if (httpSocket != null) httpSocket.close();
-        //if (socket != null) socket.close();
+        if (socket != null) socket.close();
     }
 
     public void run() {
