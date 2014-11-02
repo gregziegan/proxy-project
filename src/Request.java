@@ -1,6 +1,3 @@
-import java.io.BufferedReader;
-import java.util.StringTokenizer;
-
 public class Request {
 
     private String url;
@@ -13,12 +10,6 @@ public class Request {
 
     public String getUrl() {
         return url;
-    }
-
-    public String getHost() {
-        String secondLine = header.split("\n")[1];
-        String[] tokens = secondLine.split(" ");
-        return tokens[1];
     }
 
     public String getHeader() {

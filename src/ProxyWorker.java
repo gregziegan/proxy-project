@@ -10,10 +10,13 @@ public class ProxyWorker extends Thread {
     public static final int BUFFER_SIZE = 32768;
     public ProxyWorker(Socket socket, ConcurrentMap<String, InetSocketAddress> dnsCache) {
         this.socket = socket;
-        this.dnsCache = dnsCache;
+        this.dnsCache = dnsCache;  // a concurrent HashMap that is updated atomically with new <host, IP address> pairs
     }
 
     public Request getClientRequest() throws IOException {
+        /*
+        Returns a Request object that holds the client requested URL and header message
+         */
         BufferedReader clientInputReader = new BufferedReader(
                 new InputStreamReader(socket.getInputStream()));
 
@@ -28,23 +31,24 @@ public class ProxyWorker extends Thread {
                 StringTokenizer tok = new StringTokenizer(inputLine);
                 tok.nextToken();
             } catch (Exception e) {
-                break;
+                break;  // break if there is no token (must be blank line/"EOF")
             }
+
             if (lineNumber == 0) {
                 String[] tokens = inputLine.split(" ");
-                requestedURL = tokens[1];
+                requestedURL = tokens[1]; // grab URL
             }
 
             if (inputLine.contains("Connection")) {
                 inputLine = "Connection: close";
                 hasConnectionField = true;
             }
+
             headerBuilder.append(inputLine);
             headerBuilder.append("\r\n");
             lineNumber++;
         }
-
-        if (!hasConnectionField)
+        if (!hasConnectionField)  // force the addition of connection: close if there is no specification
             headerBuilder.append("Connection: close\r\n");
 
         String header = headerBuilder.toString();
@@ -53,6 +57,9 @@ public class ProxyWorker extends Thread {
     }
 
     public Response getServerResponse(Request clientRequest) throws IOException {
+        /*
+        Returns a Response object that contains the input/output streams of the new socket opened to make http requests
+         */
         String httpMethod = clientRequest.getHTTPMethod();
 
         System.out.println(httpMethod + " " + clientRequest.getUrl());
@@ -70,6 +77,9 @@ public class ProxyWorker extends Thread {
     }
 
     public InetSocketAddress getCachedDNSAddress(final String host) {
+        /*
+        Returns a cached socket address combination if one exists for a given host.
+         */
         InetSocketAddress resolvedAddress = dnsCache.get(host);
         if (resolvedAddress == null) resolvedAddress = new InetSocketAddress(host, 80);
         dnsCache.putIfAbsent(host, resolvedAddress);
@@ -78,6 +88,9 @@ public class ProxyWorker extends Thread {
     }
 
     public void giveEntryTimeToLive(final String host) {
+        /*
+        Helper method to spawn a thread that removes cached entries after 30 seconds of their first addition
+         */
         (new Thread() {
             public void run() {
                 try {
@@ -91,6 +104,10 @@ public class ProxyWorker extends Thread {
     }
 
     public void closeResources(Response serverResponse) throws IOException {
+        /*
+        Closes resources that remain open on the Response object (the HTTP socket streams) and also closes the two
+        sockets to free up the connections.
+         */
         serverResponse.closeStreams();
         if (httpSocket != null) httpSocket.close();
         if (socket != null) socket.close();
@@ -103,7 +120,7 @@ public class ProxyWorker extends Thread {
             serverResponse.writeToOutputStream(socket.getOutputStream());
             closeResources(serverResponse);
         } catch (IOException e) {
-            e.printStackTrace();
+            e.printStackTrace();  // the stack trace for any IOException is usually enough to debug the application
         }
     }
 }

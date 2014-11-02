@@ -11,6 +11,9 @@ public class Response {
     }
 
     public void writeToOutputStream(OutputStream outputStream) throws IOException {
+        /*
+        Writes data from the HTTP socket input stream (contentStream) to the HTTP socket output stream.
+         */
         DataOutputStream dataOutputStream = new DataOutputStream(outputStream);
         byte responseBytes[] = new byte[BUFFER_SIZE];
         int index = contentStream.read(responseBytes, 0, BUFFER_SIZE);

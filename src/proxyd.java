@@ -7,7 +7,9 @@ public class proxyd {
 
 
     public static void main(String[] args) throws IOException {
+        // Disables DNS caching by the InetSocketAddress resolver
         java.security.Security.setProperty("networkaddress.cache.ttl", "0");
+
         ServerSocket serverSocket = null;
 
         int port = Integer.parseInt(args[1]);
@@ -16,6 +18,7 @@ public class proxyd {
             System.out.println("Server started on: " + port);
         } catch (IOException e) {
             System.err.println("Could not listen on port: " + port);
+            System.err.println("Maybe there is another process listening on this port?");
             System.exit(1);
         }
 
