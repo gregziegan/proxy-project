@@ -1,13 +1,16 @@
 import java.io.*;
 import java.net.*;
 import java.util.StringTokenizer;
+import java.util.concurrent.ConcurrentMap;
 
 public class ProxyWorker extends Thread {
     private Socket socket = null;
+    private ConcurrentMap<String, InetSocketAddress> dnsCache;
     private Socket httpSocket = null;
     public static final int BUFFER_SIZE = 32768;
-    public ProxyWorker(Socket socket) {
+    public ProxyWorker(Socket socket, ConcurrentMap<String, InetSocketAddress> dnsCache) {
         this.socket = socket;
+        this.dnsCache = dnsCache;
     }
 
     public Request getClientRequest() throws IOException {
@@ -52,16 +55,39 @@ public class ProxyWorker extends Thread {
     public Response getServerResponse(Request clientRequest) throws IOException {
         String httpMethod = clientRequest.getHTTPMethod();
 
-        //System.out.println(httpMethod + " " + clientRequest.getUrl());
-        System.out.println(clientRequest.getHeader());
+        System.out.println(httpMethod + " " + clientRequest.getUrl());
         httpSocket = new Socket();
-        httpSocket.connect(new InetSocketAddress(new URL(clientRequest.getUrl()).getHost(), 80));
+        String host = new URL(clientRequest.getUrl()).getHost();
+
+        httpSocket.connect(getCachedDNSAddress(host));
+
         InputStream inputStream = httpSocket.getInputStream();
         PrintWriter outWriter = new PrintWriter(httpSocket.getOutputStream(), true);
         outWriter.println(clientRequest.getHeader());
         outWriter.flush();
 
         return new Response(inputStream, outWriter);
+    }
+
+    public InetSocketAddress getCachedDNSAddress(final String host) {
+        InetSocketAddress resolvedAddress = dnsCache.get(host);
+        if (resolvedAddress == null) resolvedAddress = new InetSocketAddress(host, 80);
+        dnsCache.putIfAbsent(host, resolvedAddress);
+        giveEntryTimeToLive(host);
+        return resolvedAddress;
+    }
+
+    public void giveEntryTimeToLive(final String host) {
+        (new Thread() {
+            public void run() {
+                try {
+                    Thread.sleep(30000);  // Wait 30 seconds to delete thread
+                    dnsCache.remove(host);
+                } catch (InterruptedException e) {
+                    // let thread discontinue
+                }
+            }
+        }).start();
     }
 
     public void closeResources(Response serverResponse) throws IOException {
