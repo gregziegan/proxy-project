@@ -6,8 +6,9 @@ A simple proxy service with built-in DNS caching.
 
 ## Compilation ##
 
-cd <FULL_PATH>/project1/src/
-javac proxyd.java
+    cd <FULL_PATH>/src/
+    javac proxyd.java
 
 ## Execution ##
-java proxyd -port 5060
+
+    java proxyd -port 5060
